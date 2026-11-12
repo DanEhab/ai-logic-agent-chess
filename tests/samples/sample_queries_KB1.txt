@@ -1,0 +1,44 @@
+%-----------Sample queries for KB1-----------
+%each example query is given followed by the expected output. Please note that some queries might have multiple valid outputs (such as examples 1 and 2).
+
+
+%----example 1----
+goal((4,3), (2,2), S).
+
+S = result(k(4, 3), result(b(2, 2), s0));
+
+%----example 2----
+goal((3,4), (5,4), S).
+
+S = result(k(3, 4), result(k(2, 2), result(k(1, 4), result(b(5, 4), s0))));
+
+%----example 3----
+goal((3,4),(4,4),result(k(3,4), result(k(4,2), result(k(2,1), result(b(4,4), s0))))).
+
+true.
+
+%----example 4----
+goal((4,3),(2,2), result(k(4,3), result(k(2,1), result(b(2,2), s0)))).
+
+true .
+
+%----example 5----
+goal((4,3),(2,2), result(k(4,3), result(b(1,2), s0))).
+
+false.
+
+%----example 6----
+goal((4,3),(2,2), result(k(2,5), result(b(2,2), s0))).
+
+false. 
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		

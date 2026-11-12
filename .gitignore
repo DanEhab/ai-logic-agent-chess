@@ -1,0 +1,18 @@
+# Course hand-outs stay local
+*.pdf
+*.zip
+Assignment 2 Knoweldge Bases/
+
+# Local notes and tool folders
+CLAUDE.md
+.claude/
+graphify-out/
+
+# Copy made for the submission form
+submission/
+
+# Editor / OS files
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
