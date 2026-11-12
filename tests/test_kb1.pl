@@ -309,3 +309,23 @@ test(many_goals_give_legal_plans) :-
              N =< 5 )).
 
 :- end_tests(kb1_search).
+
+
+% Goals no plan can reach must answer false, quickly.
+:- begin_tests(kb1_impossible).
+
+test(same_cell, fail) :-
+    find_plan((4,4), (4,4), _, 5).
+
+test(knight_cell_off_board, fail) :-
+    find_plan((7,1), (2,2), _, 5).
+
+% (7,7) is off the board, yet a knight jump from it would land on (5,6)
+% or (6,5). Without the on_board check this would search forever.
+test(knight_cell_off_board_but_near, fail) :-
+    find_plan((7,7), (2,2), _, 5).
+
+test(bishop_cell_off_board, fail) :-
+    find_plan((4,3), (0,2), _, 5).
+
+:- end_tests(kb1_impossible).

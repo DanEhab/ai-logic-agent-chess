@@ -219,30 +219,50 @@ goal(KnightCell, BishopCell, S) :-
 % With call_with_depth_limit, a check like \+ occupied(H, V, S) that hits
 % the depth limit counts as "not occupied", so an illegal move could slip
 % into a plan. Counting actions has no such limit inside the checks.
-goal((KX, KY), BishopCell, S) :-
+goal(KnightCell, BishopCell, S) :-
     \+ ground(S),
-    knight_distances((KX, KY), Dist),
+    can_be_reached(KnightCell, BishopCell, Dists),
     between(0, inf, Moves),
-    extend(s0, Moves, Dist, (KX, KY), BishopCell, S),
+    extend(s0, Moves, Dists, KnightCell, BishopCell, S),
     !.
 
-% extend(+S0, +Moves, +Dist, +KnightCell, +BishopCell, -S): S is S0 followed
+% can_be_reached(+KnightCell, +BishopCell, -Dists): quick tests that throw
+% out goals no plan can ever reach. Without them, iterative deepening
+% would try 1 move, 2 moves, 3 moves, ... forever and never say false.
+%   - the two cells must differ (two pieces never share a cell),
+%   - both cells must be on the board,
+%   - some knight must be able to get to KnightCell and some bishop to
+%     BishopCell, even if the board were empty. This uses the same
+%     distances as the lower bound below. It fails when no bishop has the
+%     shade of BishopCell (a bishop never changes shade), when no knight
+%     can ever land on KnightCell (like the centre of a 3x3 board), and
+%     when bishops cannot move at all (a board only one cell wide).
+% Dists is dists(KnightDist, BishopDist), the two distance tables.
+can_be_reached((KX, KY), (BX, BY), dists(KnightDist, BishopDist)) :-
+    (KX, KY) \== (BX, BY),
+    on_board(KX, KY),
+    on_board(BX, BY),
+    distances(knight_jump, (KX, KY), KnightDist),
+    distances(bishop_slide, (BX, BY), BishopDist),
+    moves_needed(s0, dists(KnightDist, BishopDist), (KX, KY), (BX, BY), _).
+
+% extend(+S0, +Moves, +Dists, +KnightCell, +BishopCell, -S): S is S0 followed
 % by exactly Moves more allowed actions, and the goal holds in S.
 % Actions are tried in sorted order (setof): every b move before every
 % k move, each by increasing target cell. With this order the plans
 % found for the public examples are exactly the sample answers.
 extend(S, 0, _, KnightCell, BishopCell, S) :-
     reached(KnightCell, BishopCell, S).
-extend(S0, Moves, Dist, KnightCell, BishopCell, S) :-
+extend(S0, Moves, Dists, KnightCell, BishopCell, S) :-
     Moves > 0,
-    moves_needed(S0, Dist, KnightCell, BishopCell, Needed),
+    moves_needed(S0, Dists, KnightCell, BishopCell, Needed),
     Needed =< Moves,
     setof(A, poss(A, S0), Actions),
     member(A, Actions),
     Left is Moves - 1,
-    extend(result(A, S0), Left, Dist, KnightCell, BishopCell, S).
+    extend(result(A, S0), Left, Dists, KnightCell, BishopCell, S).
 
-% moves_needed(+S, +Dist, +KnightCell, +BishopCell, -N): at least N more
+% moves_needed(+S, +Dists, +KnightCell, +BishopCell, -N): at least N more
 % actions are needed from S before the goal can hold. Every action moves
 % one piece, and the knight and the bishop of the goal are different
 % pieces, so N = (knight moves needed) + (bishop moves needed).
@@ -253,9 +273,9 @@ extend(S0, Moves, Dist, KnightCell, BishopCell, S) :-
 % N > Moves can be skipped without losing a plan, and the first plan
 % found is still a shortest one. If no knight or no bishop can ever get
 % to its cell, fewest_moves/4 fails and so does this.
-moves_needed(S, Dist, (KX, KY), (BX, BY), N) :-
-    findall((X, Y)-D, ( knight(X, Y, S), memberchk((X, Y)-D, Dist) ), Knights),
-    findall((X, Y)-D, ( bishop(X, Y, S), bishop_slides(X, Y, BX, BY, D) ), Bishops),
+moves_needed(S, dists(KnightDist, BishopDist), (KX, KY), (BX, BY), N) :-
+    findall((X, Y)-D, ( knight(X, Y, S), memberchk((X, Y)-D, KnightDist) ), Knights),
+    findall((X, Y)-D, ( bishop(X, Y, S), memberchk((X, Y)-D, BishopDist) ), Bishops),
     ( knight(BX, BY, S) -> KnightInTheWay = true ; KnightInTheWay = false ),
     ( bishop(KX, KY, S) -> BishopInTheWay = true ; BishopInTheWay = false ),
     fewest_moves(Knights, KnightInTheWay, (BX, BY), NK),
@@ -276,34 +296,26 @@ fewest_moves(Pieces, true, Cell, N) :-
     append(Own, Others, Ds),
     min_list(Ds, N).
 
-% bishop_slides(+X, +Y, +BX, +BY, -D): a bishop on (X, Y) needs at least D
-% slides to reach (BX, BY) on an empty board: 0 if it is there, 1 on the
-% same diagonal, 2 on the same square shade. A bishop never changes
-% shade, so a cell of the other shade gives no answer at all.
-bishop_slides(X, Y, BX, BY, D) :-
-    (   X =:= BX, Y =:= BY                  -> D = 0
-    ;   abs(X - BX) =:= abs(Y - BY)         -> D = 1
-    ;   (X + Y) mod 2 =:= (BX + BY) mod 2   -> D = 2
-    ).
+% distances(+Move, +Cell, -Dist): Dist is a list of Cell2-D pairs, where D
+% is the fewest moves of one piece type (Move is knight_jump or
+% bishop_slide) between Cell and Cell2 on an empty board. Both kinds of
+% move can be made in reverse, so D is also the fewest moves from Cell2
+% to Cell. Cells the piece can never get to are not in the list; for a
+% bishop that includes every cell of the other shade.
+% It is a breadth-first search over cells, one layer of moves at a time.
+distances(Move, Cell, Dist) :-
+    layers(Move, [Cell], [Cell-0], 0, Dist).
 
-% knight_distances(+Cell, -Dist): Dist is a list of Cell2-D pairs, where
-% D is the fewest jumps between Cell and Cell2 on an empty board. Jumps
-% work both ways, so it is also the fewest jumps from Cell2 to Cell.
-% Cells a knight can never reach are not in the list.
-% It is a breadth-first search over cells, one layer of jumps at a time.
-knight_distances(Cell, Dist) :-
-    knight_layers([Cell], [Cell-0], 0, Dist).
-
-knight_layers([], Dist, _, Dist).
-knight_layers(Layer, Seen, D, Dist) :-
+layers(_, [], Dist, _, Dist).
+layers(Move, Layer, Seen, D, Dist) :-
     Layer \== [],
     D1 is D + 1,
     findall((X2, Y2),
             ( member((X, Y), Layer),
-              knight_jump(X, Y, X2, Y2),
+              call(Move, X, Y, X2, Y2),
               \+ memberchk((X2, Y2)-_, Seen) ),
             Found),
     sort(Found, Next),
     findall(C-D1, member(C, Next), NextPairs),
     append(Seen, NextPairs, Seen1),
-    knight_layers(Next, Seen1, D1, Dist).
+    layers(Move, Next, Seen1, D1, Dist).

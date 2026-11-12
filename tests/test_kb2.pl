@@ -141,6 +141,12 @@ test(two_moves_keep_every_piece) :-
 test(sample5_false, fail) :-
     goal((6,1), (3,3), result(k(2,1), result(k(4,2), result(b(3,3), result(k(2,1), s0))))).
 
+% Sample 4: S is unknown and there is no plan, because a knight and a
+% bishop can never share a cell. The answer must be false, not a search
+% that never ends (find_plan gives up with an error after 5 seconds).
+test(sample4_false, fail) :-
+    find_plan((3,3), (3,3), _, 5).
+
 :- end_tests(kb2_samples).
 
 
