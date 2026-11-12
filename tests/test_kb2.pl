@@ -132,3 +132,32 @@ test(two_moves_keep_every_piece) :-
              length(Cells, 4) )).
 
 :- end_tests(kb2_ssa).
+
+
+% The public example from tests/samples/sample_queries_KB2.txt where the
+% situation is given.
+:- begin_tests(kb2_samples).
+
+test(sample5_false, fail) :-
+    goal((6,1), (3,3), result(k(2,1), result(k(4,2), result(b(3,3), result(k(2,1), s0))))).
+
+:- end_tests(kb2_samples).
+
+
+:- begin_tests(kb2_goal_given).
+
+% The sample answers for KB2 examples 1 to 3, checked as given plans.
+test(sample1_answer_checks, nondet) :-
+    goal((6,1), (3,3), result(k(6,1), result(k(5,3), result(b(3,3), result(k(1,2), s0))))).
+
+test(sample2_answer_checks, nondet) :-
+    goal((4,1), (3,2), result(k(4,1), result(b(3,2), s0))).
+
+test(sample3_answer_checks, nondet) :-
+    goal((6,1), (3,2), result(k(6,1), result(k(5,3), result(b(3,2), s0)))).
+
+% The bishop cannot go to (3,3) while the knight still stands there.
+test(bishop_first_is_illegal, fail) :-
+    goal((6,1), (3,3), result(k(6,1), result(k(5,3), result(k(1,2), result(b(3,3), s0))))).
+
+:- end_tests(kb2_goal_given).

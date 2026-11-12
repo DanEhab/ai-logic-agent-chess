@@ -220,3 +220,50 @@ test(two_moves_keep_every_piece) :-
              length(Cells, 5) )).
 
 :- end_tests(kb1_ssa).
+
+
+% The public examples from tests/samples/sample_queries_KB1.txt where
+% the situation is given and the answer is true or false.
+:- begin_tests(kb1_samples).
+
+test(sample3_true, nondet) :-
+    goal((3,4), (4,4), result(k(3,4), result(k(4,2), result(k(2,1), result(b(4,4), s0))))).
+
+test(sample4_true, nondet) :-
+    goal((4,3), (2,2), result(k(4,3), result(k(2,1), result(b(2,2), s0)))).
+
+test(sample5_false, fail) :-
+    goal((4,3), (2,2), result(k(4,3), result(b(1,2), s0))).
+
+test(sample6_false, fail) :-
+    goal((4,3), (2,2), result(k(2,5), result(b(2,2), s0))).
+
+:- end_tests(kb1_samples).
+
+
+:- begin_tests(kb1_goal_given).
+
+% Already true at the start.
+test(true_in_s0, nondet) :-
+    goal((3,3), (1,1), s0).
+
+test(false_in_s0, fail) :-
+    goal((4,3), (2,2), s0).
+
+% Sample 1's answer, checked as a given plan.
+test(sample1_answer_checks, nondet) :-
+    goal((4,3), (2,2), result(k(4,3), result(b(2,2), s0))).
+
+% The same two moves in the other order also work.
+test(other_order_checks, nondet) :-
+    goal((4,3), (2,2), result(b(2,2), result(k(4,3), s0))).
+
+% Right pieces, but one cell is wrong.
+test(wrong_bishop_cell, fail) :-
+    goal((4,3), (4,4), result(k(4,3), result(b(2,2), s0))).
+
+% A knight and a bishop can never share a cell.
+test(same_cell, fail) :-
+    goal((3,3), (3,3), s0).
+
+:- end_tests(kb1_goal_given).

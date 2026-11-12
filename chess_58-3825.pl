@@ -184,3 +184,23 @@ poss(k(H, V), S) :-
 poss(b(H, V), S) :-
     bishop_mover(_, _, H, V, S),
     \+ occupied(H, V, S).
+
+
+% ------------------------------------------------------------------
+% The goal
+% ------------------------------------------------------------------
+
+% reached((KX, KY), (BX, BY), S): in situation S some knight stands on
+% (KX, KY) and some bishop stands on (BX, BY). This is just the query
+% Knight(kx, ky, s) /\ Bishop(bx, by, s) asked through the two fluents.
+reached((KX, KY), (BX, BY), S) :-
+    knight(KX, KY, S),
+    bishop(BX, BY, S).
+
+% goal((KX, KY), (BX, BY), S)
+% When S is given (ground), we only check it: the successor-state
+% axioms replay the actions from s0, so the answer is false if any
+% action in S was illegal or the pieces do not end on the two cells.
+goal(KnightCell, BishopCell, S) :-
+    ground(S),
+    reached(KnightCell, BishopCell, S).
