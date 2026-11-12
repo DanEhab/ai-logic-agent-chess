@@ -54,3 +54,43 @@ bishop_slide(X, Y, X2, Y2) :-
     D > 0,
     ( Y2 is Y + D ; Y2 is Y - D ),
     on_board(X2, Y2).
+
+
+% ------------------------------------------------------------------
+% Fluents
+%
+% We use exactly two fluents. Both describe where the pieces stand,
+% and both take the situation as their last argument because the
+% answer changes as pieces move.
+% ------------------------------------------------------------------
+
+% Fluent 1: knight(X, Y, S)
+%   X : column of a cell, 1..W
+%   Y : row of a cell, 1..H
+%   S : a situation, either s0 or result(A, S1)
+% True when a knight stands on cell (X, Y) in situation S. Knights have
+% no names: the fluent only says that some knight is on that cell.
+% In the initial situation s0 the KB facts knight_at/2 decide it.
+knight(X, Y, s0) :-
+    knight_at(X, Y).
+
+% Fluent 2: bishop(X, Y, S)
+%   X : column of a cell, 1..W
+%   Y : row of a cell, 1..H
+%   S : a situation, either s0 or result(A, S1)
+% True when a bishop stands on cell (X, Y) in situation S. As with the
+% knights, bishops have no names.
+% In the initial situation s0 the KB facts bishop_at/2 decide it.
+bishop(X, Y, s0) :-
+    bishop_at(X, Y).
+
+% occupied(X, Y, S): some piece, knight or bishop, stands on (X, Y) in S.
+% This is not a third fluent. It has no successor-state axiom of its
+% own; it is only a short name for "knight(X,Y,S) or bishop(X,Y,S)",
+% the same way ClearTop is defined from On in Problem Set 6.
+% Call it with X and Y bound when it is used under \+ (otherwise
+% \+ occupied(X, Y, S) would mean "the whole board is empty").
+occupied(X, Y, S) :-
+    knight(X, Y, S)
+    ;
+    bishop(X, Y, S).

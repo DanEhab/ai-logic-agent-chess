@@ -45,3 +45,27 @@ test(bishop_from_2_3, T == [(1,2), (1,4), (3,2), (3,4), (4,1), (4,5)]) :-
     setof((X,Y), bishop_slide(2, 3, X, Y), T).
 
 :- end_tests(kb2_geometry).
+
+
+:- begin_tests(kb2_s0).
+
+test(knights_in_s0, Ks == [(3,3), (6,5)]) :-
+    setof((X,Y), knight(X, Y, s0), Ks).
+
+test(bishops_in_s0, Bs == [(1,1), (2,3)]) :-
+    setof((X,Y), bishop(X, Y, s0), Bs).
+
+test(occupied_cells, Cs == [(1,1), (2,3), (3,3), (6,5)]) :-
+    setof((X,Y), occupied(X, Y, s0), Cs).
+
+% (3,3) holds a knight in s0, which is why KB2 sample 1 must move it
+% away before a bishop can land there.
+test(bishop_target_starts_taken, nondet) :-
+    knight(3, 3, s0),
+    occupied(3, 3, s0).
+
+test(empty_cells) :-
+    \+ occupied(6, 1, s0),
+    \+ occupied(3, 2, s0).
+
+:- end_tests(kb2_s0).

@@ -91,3 +91,31 @@ test(bishop_keeps_shade) :-
            (X + Y) mod 2 =:= (A + B) mod 2).
 
 :- end_tests(kb1_geometry).
+
+
+:- begin_tests(kb1_s0).
+
+test(knights_in_s0, Ks == [(3,3), (5,1)]) :-
+    setof((X,Y), knight(X, Y, s0), Ks).
+
+test(bishops_in_s0, Bs == [(1,1), (3,2), (4,6)]) :-
+    setof((X,Y), bishop(X, Y, s0), Bs).
+
+test(occupied_cells, Cs == [(1,1), (3,2), (3,3), (4,6), (5,1)]) :-
+    setof((X,Y), occupied(X, Y, s0), Cs).
+
+test(occupied_by_bishop, nondet) :-
+    occupied(3, 2, s0).
+
+test(occupied_by_knight, nondet) :-
+    occupied(3, 3, s0).
+
+% (2,2) and (4,3) are the target cells of sample 1, so they must start empty.
+test(empty_cells) :-
+    \+ occupied(2, 2, s0),
+    \+ occupied(4, 3, s0).
+
+test(one_piece_per_cell) :-
+    \+ ( knight(X, Y, s0), bishop(X, Y, s0) ).
+
+:- end_tests(kb1_s0).
