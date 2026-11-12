@@ -161,3 +161,19 @@ test(bishop_first_is_illegal, fail) :-
     goal((6,1), (3,3), result(k(6,1), result(k(5,3), result(k(1,2), result(b(3,3), s0))))).
 
 :- end_tests(kb2_goal_given).
+
+
+% Public examples 1 to 3 for KB2 (example 4 has no plan; that is T8).
+:- begin_tests(kb2_search).
+
+% The knight on (3,3) must move away before the bishop can land there.
+test(sample1, S == result(k(6,1), result(k(5,3), result(b(3,3), result(k(1,2), s0))))) :-
+    find_plan((6,1), (3,3), S, 10).
+
+test(sample2, S == result(k(4,1), result(b(3,2), s0))) :-
+    find_plan((4,1), (3,2), S, 10).
+
+test(sample3, S == result(k(6,1), result(k(5,3), result(b(3,2), s0)))) :-
+    find_plan((6,1), (3,2), S, 10).
+
+:- end_tests(kb2_search).

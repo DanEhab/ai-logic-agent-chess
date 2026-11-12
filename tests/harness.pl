@@ -8,7 +8,10 @@
     file in its own swipl process, so facts from two boards never mix.
 */
 
-:- module(harness, [load_solution/1, project_dir/1, pieces/3]).
+:- module(harness, [load_solution/1, project_dir/1, pieces/3, moves/2,
+                    find_plan/4]).
+
+:- use_module(library(time)).
 
 % Folder that holds the solution (the parent of tests/).
 project_dir(Root) :-
@@ -44,6 +47,17 @@ pieces(S, Knights, Bishops) :-
     findall((X,Y), user:bishop(X, Y, S), Bs),
     msort(Ks, Knights),
     msort(Bs, Bishops).
+
+% moves(+S, -N): S is N actions after s0.
+moves(s0, 0).
+moves(result(_, S), N) :-
+    moves(S, N0),
+    N is N0 + 1.
+
+% find_plan(+KnightCell, +BishopCell, -S, +Seconds): ask goal/3 for a plan,
+% but give up (and fail the test) after Seconds instead of hanging.
+find_plan(KnightCell, BishopCell, S, Seconds) :-
+    call_with_time_limit(Seconds, user:goal(KnightCell, BishopCell, S)).
 
 :- multifile user:term_expansion/2.
 :- dynamic user:term_expansion/2.

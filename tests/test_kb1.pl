@@ -267,3 +267,45 @@ test(same_cell, fail) :-
     goal((3,3), (3,3), s0).
 
 :- end_tests(kb1_goal_given).
+
+
+% Public examples 1 and 2: S is unknown, so goal/3 has to find it. Any
+% valid plan is accepted, but ours are exactly the sample answers.
+:- begin_tests(kb1_search).
+
+test(sample1, S == result(k(4,3), result(b(2,2), s0))) :-
+    find_plan((4,3), (2,2), S, 10).
+
+test(sample2, S == result(k(3,4), result(k(2,2), result(k(1,4), result(b(5,4), s0))))) :-
+    find_plan((3,4), (5,4), S, 10).
+
+% Already true at the start: no action needed.
+test(already_true, S == s0) :-
+    find_plan((3,3), (1,1), S, 10).
+
+% Only one answer, so pressing ; at the prompt answers false at once.
+test(one_answer_only, L == [result(k(4,3), result(b(2,2), s0))]) :-
+    call_with_time_limit(10, findall(S, goal((4,3), (2,2), S), L)).
+
+% Part of the plan can be given and the rest is filled in.
+test(partly_given_plan, S1 == result(b(2,2), s0)) :-
+    find_plan((4,3), (2,2), result(k(4,3), S1), 10).
+
+% A plan of 5 moves: the bishop on (1,1) must leave the knight's cell.
+test(five_moves, nondet) :-
+    find_plan((1,1), (3,4), S, 20),
+    moves(S, 5),
+    goal((1,1), (3,4), S).
+
+% 22 goals across the board: each answer is a legal plan for that goal
+% (checked again with goal/3 on the given plan) of at most 5 moves.
+test(many_goals_give_legal_plans) :-
+    forall(( member(K, [(1,1), (2,2), (4,4), (6,6), (1,6), (6,1)]),
+             member(B, [(2,2), (5,5), (3,4), (6,1)]),
+             K \== B ),
+           ( find_plan(K, B, S, 20),
+             goal(K, B, S),
+             moves(S, N),
+             N =< 5 )).
+
+:- end_tests(kb1_search).
