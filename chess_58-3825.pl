@@ -94,3 +94,48 @@ occupied(X, Y, S) :-
     knight(X, Y, S)
     ;
     bishop(X, Y, S).
+
+
+% ------------------------------------------------------------------
+% Which piece moves, and when a move is allowed
+%
+% Like occupied/3, the predicates in this section are defined from the
+% two fluents. They have no successor-state axioms, so they are not
+% extra fluents.
+% ------------------------------------------------------------------
+
+% knight_mover(X, Y, H, V, S): the knight on (X, Y) is the one that
+% carries out k(H, V) in situation S.
+% The action k(H, V) only names the target cell. If two knights could
+% both jump to (H, V), we still need exactly one of them to move, so we
+% pick the knight with the smaller coordinates (compared with @<, so by
+% X first and then by Y). With a single candidate this changes nothing.
+knight_mover(X, Y, H, V, S) :-
+    knight(X, Y, S),
+    knight_jump(X, Y, H, V),
+    \+ ( knight(X2, Y2, S),
+         (X2, Y2) @< (X, Y),
+         knight_jump(X2, Y2, H, V) ).
+
+% bishop_mover(X, Y, H, V, S): the same rule for b(H, V) and bishops.
+bishop_mover(X, Y, H, V, S) :-
+    bishop(X, Y, S),
+    bishop_slide(X, Y, H, V),
+    \+ ( bishop(X2, Y2, S),
+         (X2, Y2) @< (X, Y),
+         bishop_slide(X2, Y2, H, V) ).
+
+% poss(A, S): action A can be done in situation S.
+% k(H, V) needs a knight that can jump to (H, V), and b(H, V) needs a
+% bishop that can slide to (H, V). In both cases (H, V) must be empty,
+% since there are no captures. A bishop's path may cross other pieces,
+% so only the target cell is checked.
+% Going through the mover means every allowed action is found once,
+% even when two pieces could make it.
+poss(k(H, V), S) :-
+    knight_mover(_, _, H, V, S),
+    \+ occupied(H, V, S).
+
+poss(b(H, V), S) :-
+    bishop_mover(_, _, H, V, S),
+    \+ occupied(H, V, S).

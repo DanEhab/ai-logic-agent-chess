@@ -119,3 +119,59 @@ test(one_piece_per_cell) :-
     \+ ( knight(X, Y, s0), bishop(X, Y, s0) ).
 
 :- end_tests(kb1_s0).
+
+
+:- begin_tests(kb1_poss).
+
+test(action_count, N == 25) :-
+    setof(A, poss(A, s0), As),
+    length(As, N).
+
+test(knight_moves, Ks == [k(1,2), k(1,4), k(2,1), k(2,5), k(4,1),
+                          k(4,3), k(4,5), k(5,2), k(5,4), k(6,3)]) :-
+    setof(k(H,V), poss(k(H,V), s0), Ks).
+
+test(bishop_moves, Bs == [b(1,3), b(1,4), b(2,1), b(2,2), b(2,3),
+                          b(2,4), b(3,5), b(4,1), b(4,3), b(4,4),
+                          b(5,4), b(5,5), b(6,4), b(6,5), b(6,6)]) :-
+    setof(b(H,V), poss(b(H,V), s0), Bs).
+
+% findall keeps duplicates, so this shows each action is found only once.
+test(each_action_found_once, N == 25) :-
+    findall(A, poss(A, s0), L),
+    length(L, N).
+
+% The first moves of samples 1 and 2.
+test(sample_first_moves, nondet) :-
+    poss(b(2,2), s0),
+    poss(b(5,4), s0),
+    poss(k(4,3), s0).
+
+% Sample 5's move: no bishop is on a diagonal with (1,2).
+test(sample5_illegal_bishop_move) :-
+    \+ poss(b(1,2), s0).
+
+% A knight on (5,1) could jump to (3,2), but a bishop is standing there.
+test(knight_target_taken, nondet) :-
+    knight_jump(5, 1, 3, 2),
+    \+ poss(k(3,2), s0).
+
+% (3,3) is on the (1,1) bishop's diagonal, but a knight is standing there.
+test(bishop_target_taken, nondet) :-
+    bishop_slide(1, 1, 3, 3),
+    \+ poss(b(3,3), s0).
+
+test(not_a_move) :-
+    \+ poss(k(4,4), s0),
+    \+ poss(k(7,2), s0),
+    \+ poss(b(3,1), s0).
+
+% Two bishops can reach (5,5); only the lower one, (1,1), is the mover.
+test(two_bishops_one_mover) :-
+    setof((X,Y), ( bishop(X, Y, s0), bishop_slide(X, Y, 5, 5) ), Both),
+    Both == [(1,1), (4,6)],
+    setof((X,Y), bishop_mover(X, Y, 5, 5, s0), Mover),
+    Mover == [(1,1)],
+    aggregate_all(count, poss(b(5,5), s0), 1).
+
+:- end_tests(kb1_poss).

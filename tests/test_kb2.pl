@@ -69,3 +69,34 @@ test(empty_cells) :-
     \+ occupied(3, 2, s0).
 
 :- end_tests(kb2_s0).
+
+
+:- begin_tests(kb2_poss).
+
+test(action_count, N == 19) :-
+    setof(A, poss(A, s0), As),
+    length(As, N).
+
+test(knight_moves, Ks == [k(1,2), k(1,4), k(2,1), k(2,5), k(4,1),
+                          k(4,4), k(4,5), k(5,2), k(5,3), k(5,4)]) :-
+    setof(k(H,V), poss(k(H,V), s0), Ks).
+
+test(bishop_moves, Bs == [b(1,2), b(1,4), b(2,2), b(3,2), b(3,4),
+                          b(4,1), b(4,4), b(4,5), b(5,5)]) :-
+    setof(b(H,V), poss(b(H,V), s0), Bs).
+
+test(each_action_found_once, N == 19) :-
+    findall(A, poss(A, s0), L),
+    length(L, N).
+
+% Sample 1 cannot start with b(3,3): the knight on (3,3) must move first.
+test(sample1_bishop_waits, nondet) :-
+    \+ poss(b(3,3), s0),
+    poss(k(1,2), s0).
+
+% The first moves of samples 2 and 3.
+test(sample_first_moves, nondet) :-
+    poss(b(3,2), s0),
+    poss(k(4,1), s0).
+
+:- end_tests(kb2_poss).
