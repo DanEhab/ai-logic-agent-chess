@@ -74,6 +74,31 @@ bishop_slide(X, Y, X2, Y2) :-
 knight(X, Y, s0) :-
     knight_at(X, Y).
 
+% Successor-state axiom for knight:
+%
+%   forall x, y, a, s:
+%     Knight(x, y, Result(a, s))  <=>
+%         Poss(a, s) /\
+%         (   a = K(x, y)
+%          \/ ( Knight(x, y, s) /\
+%               ~exists h, v [ a = K(h, v) /\ KnightMover(x, y, h, v, s) ] ) )
+%
+% In words: after doing A in S, a knight stands on (X, Y) exactly when A
+% was allowed in S and either
+%   - A was k(X, Y), so a knight has just jumped onto (X, Y), or
+%   - a knight already stood on (X, Y) and A did not move that knight
+%     away. Only a k action can move a knight, and only the knight that
+%     knight_mover/5 picks for it, so b actions never change knights.
+% If A was not allowed, both cases fail and no knight is anywhere after
+% it. That makes any plan with an illegal move false, as in sample 5.
+knight(X, Y, result(A, S)) :-
+    (   A = k(X, Y),
+        poss(A, S)
+    ;   knight(X, Y, S),
+        poss(A, S),
+        \+ ( A = k(H, V), knight_mover(X, Y, H, V, S) )
+    ).
+
 % Fluent 2: bishop(X, Y, S)
 %   X : column of a cell, 1..W
 %   Y : row of a cell, 1..H
@@ -83,6 +108,26 @@ knight(X, Y, s0) :-
 % In the initial situation s0 the KB facts bishop_at/2 decide it.
 bishop(X, Y, s0) :-
     bishop_at(X, Y).
+
+% Successor-state axiom for bishop (same shape as the knight one):
+%
+%   forall x, y, a, s:
+%     Bishop(x, y, Result(a, s))  <=>
+%         Poss(a, s) /\
+%         (   a = B(x, y)
+%          \/ ( Bishop(x, y, s) /\
+%               ~exists h, v [ a = B(h, v) /\ BishopMover(x, y, h, v, s) ] ) )
+%
+% After doing A in S, a bishop stands on (X, Y) exactly when A was
+% allowed in S and either A was b(X, Y), or a bishop already stood on
+% (X, Y) and A was not the b action that bishop_mover/5 gives to it.
+bishop(X, Y, result(A, S)) :-
+    (   A = b(X, Y),
+        poss(A, S)
+    ;   bishop(X, Y, S),
+        poss(A, S),
+        \+ ( A = b(H, V), bishop_mover(X, Y, H, V, S) )
+    ).
 
 % occupied(X, Y, S): some piece, knight or bishop, stands on (X, Y) in S.
 % This is not a third fluent. It has no successor-state axiom of its

@@ -175,3 +175,48 @@ test(two_bishops_one_mover) :-
     aggregate_all(count, poss(b(5,5), s0), 1).
 
 :- end_tests(kb1_poss).
+
+
+:- begin_tests(kb1_ssa).
+
+% A bishop move leaves the knights where they were (the frame part).
+test(bishop_move_keeps_knights) :-
+    pieces(result(b(2,2), s0), Ks, Bs),
+    Ks == [(3,3), (5,1)],
+    Bs == [(2,2), (3,2), (4,6)].
+
+test(sample1_plan) :-
+    pieces(result(k(4,3), result(b(2,2), s0)), Ks, Bs),
+    Ks == [(3,3), (4,3)],
+    Bs == [(2,2), (3,2), (4,6)].
+
+test(sample3_plan) :-
+    S = result(k(3,4), result(k(4,2), result(k(2,1), result(b(4,4), s0)))),
+    pieces(S, Ks, Bs),
+    Ks == [(3,4), (5,1)],
+    Bs == [(3,2), (4,4), (4,6)].
+
+% An illegal move leaves no piece anywhere, and nothing after it can
+% bring them back (sample 5's plan).
+test(illegal_move_empties_board) :-
+    pieces(result(b(1,2), s0), [], []),
+    pieces(result(k(4,3), result(b(1,2), s0)), [], []).
+
+% Two bishops can reach (5,5); the one on (1,1) moves, the one on (4,6) stays.
+test(lower_bishop_moves) :-
+    pieces(result(b(5,5), s0), Ks, Bs),
+    Ks == [(3,3), (5,1)],
+    Bs == [(3,2), (4,6), (5,5)].
+
+% After any two allowed moves there are still 2 knights and 3 bishops,
+% each on its own cell.
+test(two_moves_keep_every_piece) :-
+    forall(( poss(A1, s0), poss(A2, result(A1, s0)) ),
+           ( pieces(result(A2, result(A1, s0)), Ks, Bs),
+             length(Ks, 2),
+             length(Bs, 3),
+             append(Ks, Bs, All),
+             sort(All, Cells),
+             length(Cells, 5) )).
+
+:- end_tests(kb1_ssa).

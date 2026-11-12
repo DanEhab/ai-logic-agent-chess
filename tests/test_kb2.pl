@@ -100,3 +100,35 @@ test(sample_first_moves, nondet) :-
     poss(k(4,1), s0).
 
 :- end_tests(kb2_poss).
+
+
+:- begin_tests(kb2_ssa).
+
+test(sample1_plan) :-
+    S = result(k(6,1), result(k(5,3), result(b(3,3), result(k(1,2), s0)))),
+    pieces(S, Ks, Bs),
+    Ks == [(1,2), (6,1)],
+    Bs == [(2,3), (3,3)].
+
+% Sample 5: every move is legal, but the knights end on (2,1) and (6,5),
+% not on (6,1).
+test(sample5_plan) :-
+    S = result(k(2,1), result(k(4,2), result(b(3,3), result(k(2,1), s0)))),
+    pieces(S, Ks, Bs),
+    Ks == [(2,1), (6,5)],
+    Bs == [(2,3), (3,3)].
+
+% The bishop cannot land on the knight at (3,3), so this is illegal.
+test(illegal_move_empties_board) :-
+    pieces(result(b(3,3), s0), [], []).
+
+test(two_moves_keep_every_piece) :-
+    forall(( poss(A1, s0), poss(A2, result(A1, s0)) ),
+           ( pieces(result(A2, result(A1, s0)), Ks, Bs),
+             length(Ks, 2),
+             length(Bs, 2),
+             append(Ks, Bs, All),
+             sort(All, Cells),
+             length(Cells, 4) )).
+
+:- end_tests(kb2_ssa).

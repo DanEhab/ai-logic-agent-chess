@@ -8,7 +8,7 @@
     file in its own swipl process, so facts from two boards never mix.
 */
 
-:- module(harness, [load_solution/1, project_dir/1]).
+:- module(harness, [load_solution/1, project_dir/1, pieces/3]).
 
 % Folder that holds the solution (the parent of tests/).
 project_dir(Root) :-
@@ -35,6 +35,15 @@ load_solution(KB) :-
         nb_setval(harness_kb, KBPath),
         load_files(user:Solution, [if(true)]),
         nb_delete(harness_kb)).
+
+% pieces(+S, -Knights, -Bishops): every cell the two fluents report in
+% situation S, sorted. msort keeps duplicates, so a cell reported twice
+% would show up in a test.
+pieces(S, Knights, Bishops) :-
+    findall((X,Y), user:knight(X, Y, S), Ks),
+    findall((X,Y), user:bishop(X, Y, S), Bs),
+    msort(Ks, Knights),
+    msort(Bs, Bishops).
 
 :- multifile user:term_expansion/2.
 :- dynamic user:term_expansion/2.
