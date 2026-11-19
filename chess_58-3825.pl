@@ -4,8 +4,10 @@
     CSEN 901 Introduction to Artificial Intelligence, Winter 2026
     Assignment 2: moving knights and bishops with the situation calculus
 
-    Team (name, ID, tutorial):
-        to be filled in before submission
+    Team:
+        Mina Magdy      58-2919   Tutorial T5
+        Tony Hany       58-6506   Tutorial T15
+        Daniel Ehab     58-3825   Tutorial T20
 
     The KB gives the board size grid(W, H) and the starting cells of the
     pieces, knight_at(X, Y) and bishop_at(X, Y). Coordinates start at 1.
@@ -17,6 +19,14 @@
         b(H, V)   move a bishop to cell (H, V)
     So result(k(4,3), result(b(2,2), s0)) means: from s0 move a bishop to
     (2,2), then move a knight to (4,3).
+
+    How the file is laid out:
+      1. Board geometry   on_board/2, knight_jump/4, bishop_slide/4
+      2. Fluents          knight/3 and bishop/3, each with its
+                          successor-state axiom
+      3. Helpers          board/2, knight_mover/5, bishop_mover/5, poss/2,
+                          all defined from the two fluents
+      4. The goal         goal/3: checks a given S, or searches for one
 */
 
 
@@ -64,7 +74,10 @@ bishop_slide(X, Y, X2, Y2) :-
 %
 % We use exactly two fluents. Both describe where the pieces stand,
 % and both take the situation as their last argument because the
-% answer changes as pieces move.
+% answer changes as pieces move. Other predicates further down also
+% mention a situation (board/2, poss/2, the movers, reached/3), but they
+% are only defined from these two and have no successor-state axioms of
+% their own, like LocAhead in Lecture 6 or ClearTop in Problem Set 6.
 % ------------------------------------------------------------------
 
 % Fluent 1: knight(X, Y, S)
@@ -94,12 +107,17 @@ knight(X, Y, s0) :-
 %     knight_mover/5 picks for it, so b actions never change knights.
 % If A was not allowed, both cases fail and no knight is anywhere after
 % it. That makes any plan with an illegal move false, as in sample 5.
+% The clause follows the formula in the same order. Poss(a, s) is checked
+% once, before the two cases, and knight_jump/4 is a cheap first filter
+% so that knight_mover/5 is only asked about knights that could have
+% made the jump.
 knight(X, Y, result(A, S)) :-
-    (   A = k(X, Y),
-        poss(A, S)
+    poss(A, S),
+    (   A = k(X, Y)
     ;   knight(X, Y, S),
-        poss(A, S),
-        \+ ( A = k(H, V), knight_mover(X, Y, H, V, S) )
+        \+ ( A = k(H, V),
+             knight_jump(X, Y, H, V),
+             knight_mover(X, Y, H, V, S) )
     ).
 
 % Fluent 2: bishop(X, Y, S)
@@ -125,68 +143,80 @@ bishop(X, Y, s0) :-
 % allowed in S and either A was b(X, Y), or a bishop already stood on
 % (X, Y) and A was not the b action that bishop_mover/5 gives to it.
 bishop(X, Y, result(A, S)) :-
-    (   A = b(X, Y),
-        poss(A, S)
+    poss(A, S),
+    (   A = b(X, Y)
     ;   bishop(X, Y, S),
-        poss(A, S),
-        \+ ( A = b(H, V), bishop_mover(X, Y, H, V, S) )
+        \+ ( A = b(H, V),
+             bishop_slide(X, Y, H, V),
+             bishop_mover(X, Y, H, V, S) )
     ).
 
-% occupied(X, Y, S): some piece, knight or bishop, stands on (X, Y) in S.
-% This is not a third fluent. It has no successor-state axiom of its
-% own; it is only a short name for "knight(X,Y,S) or bishop(X,Y,S)",
-% the same way ClearTop is defined from On in Problem Set 6.
-% Call it with X and Y bound when it is used under \+ (otherwise
-% \+ occupied(X, Y, S) would mean "the whole board is empty").
-occupied(X, Y, S) :-
-    knight(X, Y, S)
-    ;
-    bishop(X, Y, S).
-
 
 % ------------------------------------------------------------------
-% Which piece moves, and when a move is allowed
+% The board, which piece moves, and when a move is allowed
 %
-% Like occupied/3, the predicates in this section are defined from the
-% two fluents. They have no successor-state axioms, so they are not
-% extra fluents.
+% The predicates in this section are defined from the two fluents. They
+% have no successor-state axioms of their own, so they are not extra
+% fluents (the same way ClearTop is defined from On in Problem Set 6).
+% They expect S to be a known situation; the search in goal/3 always
+% builds S before asking about it.
 % ------------------------------------------------------------------
+
+% board(+S, -Knights-Bishops): the cells of all knights and all bishops in
+% situation S, as two sorted lists, collected from the two fluents.
+% Asking the fluents once for the whole board is much cheaper than
+% asking them cell by cell, because every question about S is answered
+% by going back through all the actions in S.
+board(S, Knights-Bishops) :-
+    findall((X, Y), knight(X, Y, S), Ks),
+    findall((X, Y), bishop(X, Y, S), Bs),
+    msort(Ks, Knights),
+    msort(Bs, Bishops).
 
 % knight_mover(X, Y, H, V, S): the knight on (X, Y) is the one that
 % carries out k(H, V) in situation S.
-% The action k(H, V) only names the target cell. If two knights could
-% both jump to (H, V), we still need exactly one of them to move, so we
-% pick the knight with the smaller coordinates (compared with @<, so by
-% X first and then by Y). With a single candidate this changes nothing.
+% The action k(H, V) only names the target cell, and the assignment does
+% not say which knight moves when two of them could jump to (H, V). The
+% successor-state axiom needs exactly one of them to move, so we pick
+% the knight with the smaller coordinates (first by X, then by Y).
+% With a single candidate this changes nothing.
 knight_mover(X, Y, H, V, S) :-
-    knight(X, Y, S),
-    knight_jump(X, Y, H, V),
-    \+ ( knight(X2, Y2, S),
-         (X2, Y2) @< (X, Y),
-         knight_jump(X2, Y2, H, V) ).
+    board(S, Knights-_),
+    lowest_mover(Knights, knight_jump, X, Y, H, V).
 
 % bishop_mover(X, Y, H, V, S): the same rule for b(H, V) and bishops.
 bishop_mover(X, Y, H, V, S) :-
-    bishop(X, Y, S),
-    bishop_slide(X, Y, H, V),
-    \+ ( bishop(X2, Y2, S),
-         (X2, Y2) @< (X, Y),
-         bishop_slide(X2, Y2, H, V) ).
+    board(S, _-Bishops),
+    lowest_mover(Bishops, bishop_slide, X, Y, H, V).
+
+% lowest_mover(+Cells, +Move, ?X, ?Y, ?H, ?V): (X, Y) is in the sorted list
+% Cells and can make Move (knight_jump or bishop_slide) to (H, V), and no
+% cell before it in the list can. Since the list is sorted, the cells
+% before (X, Y) are exactly the ones with smaller coordinates.
+lowest_mover(Cells, Move, X, Y, H, V) :-
+    append(Before, [(X, Y)|_], Cells),
+    call(Move, X, Y, H, V),
+    \+ ( member((X2, Y2), Before),
+         call(Move, X2, Y2, H, V) ).
 
 % poss(A, S): action A can be done in situation S.
 % k(H, V) needs a knight that can jump to (H, V), and b(H, V) needs a
 % bishop that can slide to (H, V). In both cases (H, V) must be empty,
 % since there are no captures. A bishop's path may cross other pieces,
 % so only the target cell is checked.
-% Going through the mover means every allowed action is found once,
-% even when two pieces could make it.
+% Going through the lowest mover means every allowed action is found
+% once, even when two pieces could make it.
 poss(k(H, V), S) :-
-    knight_mover(_, _, H, V, S),
-    \+ occupied(H, V, S).
+    board(S, Knights-Bishops),
+    lowest_mover(Knights, knight_jump, _, _, H, V),
+    \+ memberchk((H, V), Knights),
+    \+ memberchk((H, V), Bishops).
 
 poss(b(H, V), S) :-
-    bishop_mover(_, _, H, V, S),
-    \+ occupied(H, V, S).
+    board(S, Knights-Bishops),
+    lowest_mover(Bishops, bishop_slide, _, _, H, V),
+    \+ memberchk((H, V), Knights),
+    \+ memberchk((H, V), Bishops).
 
 
 % ------------------------------------------------------------------
@@ -212,23 +242,36 @@ goal(KnightCell, BishopCell, S) :-
 % number of actions: first all plans with 0 actions, then 1, then 2, ...
 % Plain depth-first search could follow one branch forever; iterative
 % deepening is complete, and the first plan it finds is a shortest one.
-% The cut stops at that first plan, so asking for more answers with ;
+% Only that first plan is returned, so asking for more answers with ;
 % just says false instead of searching on.
 %
 % We count the actions ourselves instead of using call_with_depth_limit/3.
-% With call_with_depth_limit, a check like \+ occupied(H, V, S) that hits
-% the depth limit counts as "not occupied", so an illegal move could slip
-% into a plan. Counting actions has no such limit inside the checks.
+% With call_with_depth_limit, a check written with \+ (like "no lower
+% knight can make this jump" inside a successor-state axiom) that hits
+% the depth limit counts as passed, so a wrong board could slip into a
+% plan. Counting actions has no such limit inside the checks.
 goal(KnightCell, BishopCell, S) :-
     \+ ground(S),
     can_be_reached(KnightCell, BishopCell, Dists),
-    between(0, inf, Moves),
-    extend(s0, Moves, Dists, KnightCell, BishopCell, S),
-    !.
+    deepen(0, Dists, KnightCell, BishopCell, S).
+
+% deepen(+Moves, +Dists, +KnightCell, +BishopCell, -S): look for a plan of
+% exactly Moves actions. If there is none, go one deeper only if this
+% round was cut short somewhere, by the move limit or by the lower bound.
+% If instead every branch ran out of new boards, no longer plan can exist
+% either, and the answer is false. (This is the rule in the PDF's ids:
+% go deeper only while the depth limit was actually exceeded.)
+deepen(Moves, Dists, KnightCell, BishopCell, S) :-
+    board(s0, Board),
+    (   extend(s0, Board, [], Moves, Dists, KnightCell, BishopCell, S)
+    ->  true
+    ;   cut_short(s0, Board, [], Moves, Dists, KnightCell, BishopCell),
+        Next is Moves + 1,
+        deepen(Next, Dists, KnightCell, BishopCell, S)
+    ).
 
 % can_be_reached(+KnightCell, +BishopCell, -Dists): quick tests that throw
-% out goals no plan can ever reach. Without them, iterative deepening
-% would try 1 move, 2 moves, 3 moves, ... forever and never say false.
+% out goals no plan can ever reach, before any searching:
 %   - the two cells must differ (two pieces never share a cell),
 %   - both cells must be on the board,
 %   - some knight must be able to get to KnightCell and some bishop to
@@ -244,28 +287,65 @@ can_be_reached((KX, KY), (BX, BY), dists(KnightDist, BishopDist)) :-
     on_board(BX, BY),
     distances(knight_jump, (KX, KY), KnightDist),
     distances(bishop_slide, (BX, BY), BishopDist),
-    moves_needed(s0, dists(KnightDist, BishopDist), (KX, KY), (BX, BY), _).
+    board(s0, Board),
+    moves_needed(Board, dists(KnightDist, BishopDist), (KX, KY), (BX, BY), _).
 
-% extend(+S0, +Moves, +Dists, +KnightCell, +BishopCell, -S): S is S0 followed
-% by exactly Moves more allowed actions, and the goal holds in S.
+% extend(+S0, +Board0, +Seen, +Moves, +Dists, +KnightCell, +BishopCell, -S):
+% S is S0 followed by exactly Moves more allowed actions, and the goal
+% holds in S. Board0 is the board in S0 and Seen holds the boards met
+% before it on this path. A move back to a board we already had is
+% skipped: a shortest plan never does that (the loop could be cut out),
+% so no shortest plan is lost.
 % Actions are tried in sorted order (setof): every b move before every
 % k move, each by increasing target cell. With this order the plans
 % found for the public examples are exactly the sample answers.
-extend(S, 0, _, KnightCell, BishopCell, S) :-
+extend(S, _, _, 0, _, KnightCell, BishopCell, S) :-
     reached(KnightCell, BishopCell, S).
-extend(S0, Moves, Dists, KnightCell, BishopCell, S) :-
+extend(S0, Board0, Seen, Moves, Dists, KnightCell, BishopCell, S) :-
     Moves > 0,
-    moves_needed(S0, Dists, KnightCell, BishopCell, Needed),
+    moves_needed(Board0, Dists, KnightCell, BishopCell, Needed),
     Needed =< Moves,
     setof(A, poss(A, S0), Actions),
     member(A, Actions),
     Left is Moves - 1,
-    extend(result(A, S0), Left, Dists, KnightCell, BishopCell, S).
+    new_step(S0, Board0, Seen, A, Left, S1, Board1),
+    extend(S1, Board1, [Board0|Seen], Left, Dists, KnightCell, BishopCell, S).
 
-% moves_needed(+S, +Dists, +KnightCell, +BishopCell, -N): at least N more
-% actions are needed from S before the goal can hold. Every action moves
-% one piece, and the knight and the bishop of the goal are different
-% pieces, so N = (knight moves needed) + (bishop moves needed).
+% new_step(+S0, +Board0, +Seen, +A, +Left, -S1, -Board1): S1 = result(A, S0)
+% leads to a board Board1 that is not yet on this path. After the last
+% action (Left = 0) only the goal test follows, so we skip collecting
+% the board: if it repeated an earlier one, the goal would have held
+% there already and a shorter plan would have been found first.
+new_step(S0, Board0, Seen, A, Left, S1, Board1) :-
+    S1 = result(A, S0),
+    (   Left =:= 0
+    ->  true
+    ;   board(S1, Board1),
+        \+ memberchk(Board1, [Board0|Seen])
+    ).
+
+% cut_short(+S0, +Board0, +Seen, +Moves, +Dists, +KnightCell, +BishopCell):
+% the search for a plan of Moves actions from S0 stopped somewhere because
+% the moves ran out or the lower bound said there were not enough of
+% them left, and not only because no new board could be reached. Only
+% then might a plan with more actions still exist.
+cut_short(_, _, _, 0, _, _, _).
+cut_short(S0, Board0, Seen, Moves, Dists, KnightCell, BishopCell) :-
+    Moves > 0,
+    moves_needed(Board0, Dists, KnightCell, BishopCell, Needed),
+    (   Needed > Moves
+    ->  true
+    ;   poss(A, S0),
+        Left is Moves - 1,
+        new_step(S0, Board0, Seen, A, Left, S1, Board1),
+        cut_short(S1, Board1, [Board0|Seen], Left, Dists, KnightCell, BishopCell)
+    ),
+    !.
+
+% moves_needed(+Board, +Dists, +KnightCell, +BishopCell, -N): at least N
+% more actions are needed from Board before the goal can hold. Every
+% action moves one piece, and the knight and the bishop of the goal are
+% different pieces, so N = (knight moves needed) + (bishop moves needed).
 % The counts use the empty-board distances, plus one thing we know for
 % sure: a knight standing on the bishop's cell has to leave it, and so
 % does a bishop standing on the knight's cell (see fewest_moves/4).
@@ -273,13 +353,13 @@ extend(S0, Moves, Dists, KnightCell, BishopCell, S) :-
 % N > Moves can be skipped without losing a plan, and the first plan
 % found is still a shortest one. If no knight or no bishop can ever get
 % to its cell, fewest_moves/4 fails and so does this.
-moves_needed(S, dists(KnightDist, BishopDist), (KX, KY), (BX, BY), N) :-
-    findall((X, Y)-D, ( knight(X, Y, S), memberchk((X, Y)-D, KnightDist) ), Knights),
-    findall((X, Y)-D, ( bishop(X, Y, S), memberchk((X, Y)-D, BishopDist) ), Bishops),
-    ( knight(BX, BY, S) -> KnightInTheWay = true ; KnightInTheWay = false ),
-    ( bishop(KX, KY, S) -> BishopInTheWay = true ; BishopInTheWay = false ),
-    fewest_moves(Knights, KnightInTheWay, (BX, BY), NK),
-    fewest_moves(Bishops, BishopInTheWay, (KX, KY), NB),
+moves_needed(Knights-Bishops, dists(KnightDist, BishopDist), (KX, KY), (BX, BY), N) :-
+    findall(C-D, ( member(C, Knights), memberchk(C-D, KnightDist) ), KnightDs),
+    findall(C-D, ( member(C, Bishops), memberchk(C-D, BishopDist) ), BishopDs),
+    ( memberchk((BX, BY), Knights) -> KnightInTheWay = true ; KnightInTheWay = false ),
+    ( memberchk((KX, KY), Bishops) -> BishopInTheWay = true ; BishopInTheWay = false ),
+    fewest_moves(KnightDs, KnightInTheWay, (BX, BY), NK),
+    fewest_moves(BishopDs, BishopInTheWay, (KX, KY), NB),
     N is NK + NB.
 
 % fewest_moves(+Pieces, +InTheWay, +Cell, -N): Pieces lists Cell-D for every

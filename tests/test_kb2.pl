@@ -2,6 +2,7 @@
 
 :- use_module(library(plunit)).
 :- use_module(harness).
+:- use_module(referee).
 :- load_solution('KB2.pl').
 
 :- begin_tests(kb2_board).
@@ -55,18 +56,18 @@ test(knights_in_s0, Ks == [(3,3), (6,5)]) :-
 test(bishops_in_s0, Bs == [(1,1), (2,3)]) :-
     setof((X,Y), bishop(X, Y, s0), Bs).
 
-test(occupied_cells, Cs == [(1,1), (2,3), (3,3), (6,5)]) :-
-    setof((X,Y), occupied(X, Y, s0), Cs).
+test(board_in_s0, Board == [(3,3), (6,5)]-[(1,1), (2,3)]) :-
+    board(s0, Board).
 
 % (3,3) holds a knight in s0, which is why KB2 sample 1 must move it
 % away before a bishop can land there.
 test(bishop_target_starts_taken, nondet) :-
-    knight(3, 3, s0),
-    occupied(3, 3, s0).
+    knight(3, 3, s0).
 
 test(empty_cells) :-
-    \+ occupied(6, 1, s0),
-    \+ occupied(3, 2, s0).
+    board(s0, Knights-Bishops),
+    \+ memberchk((6,1), Knights), \+ memberchk((6,1), Bishops),
+    \+ memberchk((3,2), Knights), \+ memberchk((3,2), Bishops).
 
 :- end_tests(kb2_s0).
 
@@ -183,3 +184,23 @@ test(sample3, S == result(k(6,1), result(k(5,3), result(b(3,2), s0)))) :-
     find_plan((6,1), (3,2), S, 10).
 
 :- end_tests(kb2_search).
+
+
+% The independent referee (tests/referee.pl) as a second judge on KB2.
+:- begin_tests(kb2_referee).
+
+test(sample5_false) :-
+    \+ referee_goal((6,1), (3,3), result(k(2,1), result(k(4,2), result(b(3,3), result(k(2,1), s0))))).
+
+test(sample_answers_are_legal) :-
+    referee_goal((6,1), (3,3), result(k(6,1), result(k(5,3), result(b(3,3), result(k(1,2), s0))))),
+    referee_goal((4,1), (3,2), result(k(4,1), result(b(3,2), s0))),
+    referee_goal((6,1), (3,2), result(k(6,1), result(k(5,3), result(b(3,2), s0)))).
+
+test(fluents_match_referee_after_two_moves) :-
+    forall(( poss(A1, s0), poss(A2, result(A1, s0)) ),
+           ( S = result(A2, result(A1, s0)),
+             board(S, Knights-Bishops),
+             referee_replay(S, board(Knights, Bishops)) )).
+
+:- end_tests(kb2_referee).

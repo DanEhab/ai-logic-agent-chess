@@ -2,6 +2,7 @@
 
 :- use_module(library(plunit)).
 :- use_module(harness).
+:- use_module(referee).
 :- load_solution('KB1.pl').
 
 :- begin_tests(kb1_board).
@@ -101,19 +102,14 @@ test(knights_in_s0, Ks == [(3,3), (5,1)]) :-
 test(bishops_in_s0, Bs == [(1,1), (3,2), (4,6)]) :-
     setof((X,Y), bishop(X, Y, s0), Bs).
 
-test(occupied_cells, Cs == [(1,1), (3,2), (3,3), (4,6), (5,1)]) :-
-    setof((X,Y), occupied(X, Y, s0), Cs).
-
-test(occupied_by_bishop, nondet) :-
-    occupied(3, 2, s0).
-
-test(occupied_by_knight, nondet) :-
-    occupied(3, 3, s0).
+test(board_in_s0, Board == [(3,3), (5,1)]-[(1,1), (3,2), (4,6)]) :-
+    board(s0, Board).
 
 % (2,2) and (4,3) are the target cells of sample 1, so they must start empty.
 test(empty_cells) :-
-    \+ occupied(2, 2, s0),
-    \+ occupied(4, 3, s0).
+    board(s0, Knights-Bishops),
+    \+ memberchk((2,2), Knights), \+ memberchk((2,2), Bishops),
+    \+ memberchk((4,3), Knights), \+ memberchk((4,3), Bishops).
 
 test(one_piece_per_cell) :-
     \+ ( knight(X, Y, s0), bishop(X, Y, s0) ).
@@ -329,3 +325,32 @@ test(bishop_cell_off_board, fail) :-
     find_plan((4,3), (0,2), _, 5).
 
 :- end_tests(kb1_impossible).
+
+
+% The independent referee (tests/referee.pl) as a second judge on KB1.
+:- begin_tests(kb1_referee).
+
+% The given-plan samples: the referee's replay gives the same answers.
+test(samples_3_to_6) :-
+    referee_goal((3,4), (4,4), result(k(3,4), result(k(4,2), result(k(2,1), result(b(4,4), s0))))),
+    referee_goal((4,3), (2,2), result(k(4,3), result(k(2,1), result(b(2,2), s0)))),
+    \+ referee_goal((4,3), (2,2), result(k(4,3), result(b(1,2), s0))),
+    \+ referee_goal((4,3), (2,2), result(k(2,5), result(b(2,2), s0))).
+
+% Every plan our search finds for the 22 goals is legal for the referee.
+test(search_plans_are_legal) :-
+    forall(( member(K, [(1,1), (2,2), (4,4), (6,6), (1,6), (6,1)]),
+             member(B, [(2,2), (5,5), (3,4), (6,1)]),
+             K \== B ),
+           ( find_plan(K, B, S, 30),
+             referee_goal(K, B, S) )).
+
+% The board our fluents give after every allowed 2-move plan is the
+% board the referee gets by replaying the same plan.
+test(fluents_match_referee_after_two_moves) :-
+    forall(( poss(A1, s0), poss(A2, result(A1, s0)) ),
+           ( S = result(A2, result(A1, s0)),
+             board(S, Knights-Bishops),
+             referee_replay(S, board(Knights, Bishops)) )).
+
+:- end_tests(kb1_referee).
